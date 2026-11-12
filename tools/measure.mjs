@@ -1,7 +1,7 @@
 // Measures each page in headless Chrome over CDP. No dependencies: Node's global
 // WebSocket plus the DevTools HTTP endpoint.
 import { spawn } from 'node:child_process';
-import {existsSync, mkdtempSync, readdirSync } from 'node:fs';
+import {existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -105,7 +105,9 @@ function rpc(ws, id, method, params = {}) {
   });
 }
 
-const ws = new WebSocket(await endpoint());
+let ws, failed = false;
+try { // finally: never orphan Chrome or its profile, even when endpoint() throws
+ws = new WebSocket(await endpoint());
 await new Promise((res) => ws.addEventListener('open', res));
 
 let id = 1;
@@ -134,10 +136,13 @@ for (const url of urls) {
   try { data = JSON.parse(res.result?.result?.value ?? 'null'); } catch { data = null; }
   console.log('\n=== ' + label);
   console.log(JSON.stringify(data, null, 1));
+  if (!data || data.overflowX || data.riseHidden) failed = true;
 }
 
 console.log('\n=== JS problems seen: ' + problems.length);
 problems.slice(0, 14).forEach((p) => console.log('  ' + p));
-ws.close();
-chrome.kill();
-process.exit(0);
+} finally {
+  ws?.close(); chrome.kill();
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch {}
+}
+process.exit(failed || problems.length ? 1 : 0);

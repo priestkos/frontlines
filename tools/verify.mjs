@@ -2,7 +2,7 @@
 // geometry and canvas paint coverage, captures a hero screenshot. CDP over Node's
 // global WebSocket, no dependencies.
 import { spawn } from 'node:child_process';
-import {existsSync, mkdtempSync, readdirSync, writeFileSync } from 'node:fs';
+import {existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -99,7 +99,9 @@ const MEASURE = `(() => {
   });
 })()`;
 
-const ws = new WebSocket(await wsUrl());
+let ws, failed = false;
+try { // finally: never orphan Chrome or its profile, even when wsUrl() throws
+ws = new WebSocket(await wsUrl());
 await new Promise((r) => ws.addEventListener('open', r));
 let id = 1;
 const rpc = (method, params = {}) => new Promise((resolve) => {
@@ -130,8 +132,13 @@ for (const [url, shot] of targets) {
   let data = null; try { data = JSON.parse(r.result?.result?.value ?? 'null'); } catch {}
   console.log('\n=== ' + url.split('/').slice(-2)[0]);
   console.log(JSON.stringify(data, null, 1));
+  if (!data || data.overflowX || data.hiddenLeft) failed = true;
   const cap = await rpc('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   if (cap.result?.data) { writeFileSync(shot, Buffer.from(cap.result.data, 'base64')); console.log('screenshot -> ' + shot); }
 }
 console.log('\nJS problems: ' + problems.length); problems.slice(0, 10).forEach((p) => console.log('  ' + p));
-ws.close(); chrome.kill(); process.exit(0);
+} finally {
+  ws?.close(); chrome.kill();
+  try { rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch {}
+}
+process.exit(failed || problems.length ? 1 : 0);
