@@ -27,6 +27,10 @@ class Parse(unittest.TestCase):
         self.assertEqual([b["id"] for b in blocks if b["type"] == "heading"],
                          ["sources", "sources-2", "sources-3"])
 
+    def test_heading_text_is_plain(self):
+        blocks, _ = parse("## Cheng (*cheng* / *ch'i*) & `x`\n")
+        self.assertEqual(blocks[0]["text"], "Cheng (cheng / ch'i) & x")
+
     def test_frontmatter_skipped(self):
         blocks, _ = parse("---\nname: x\n---\nHello\n")
         self.assertEqual(blocks, [{"type": "para", "html": "Hello"}])
@@ -58,6 +62,10 @@ class BuiltPages(unittest.TestCase):
         for name, s in self.markup():
             tags = {t.lower() for t in re.findall(r"</?([A-Za-z][\w.-]*)", s)}
             self.assertEqual(tags - KNOWN_TAGS, set(), name)
+
+    def test_no_bare_ampersands(self):
+        for name, s in self.markup():
+            self.assertEqual(re.findall(r"&(?![a-zA-Z]+;|#\d+;|#x[0-9a-fA-F]+;).{0,20}", s), [], name)
 
     def test_ids_unique_and_toc_resolves(self):
         for name, s in self.pages.items():

@@ -5,6 +5,7 @@ No external dependencies. Produces a block list suitable for rendering to HTML,
 plus a coverage report so fidelity can be *proven* rather than asserted.
 """
 import json
+from html import unescape
 import re
 import sys
 from pathlib import Path
@@ -140,8 +141,9 @@ def parse(text: str):
             seen[ident] = seen.get(ident, 0) + 1
             if seen[ident] > 1:  # repeated heading text: keep ids (and TOC jumps) unique
                 ident = f"{ident}-{seen[ident]}"
-            blocks.append({"type": "heading", "level": level, "html": inline(txt),
-                           "text": re.sub(r"<[^>]+>", "", txt), "id": ident})
+            html = inline(txt)
+            blocks.append({"type": "heading", "level": level, "html": html,
+                           "text": unescape(re.sub(r"<[^>]+>", "", html)), "id": ident})
             stats["heading"] += 1
             i += 1
             continue

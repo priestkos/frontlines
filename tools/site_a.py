@@ -8,7 +8,7 @@ import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
-from md2blocks import build, SOURCES  # noqa: E402
+from md2blocks import build, esc, SOURCES  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "woodblock-codex"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -83,7 +83,7 @@ for idx, doc in enumerate(DOCS):
     subs = []
     for b in doc["blocks"]:
         if b["type"] == "heading" and b["level"] in (1, 2, 3):
-            subs.append((min(b["level"], 3), b["text"][:76], f'd{idx}-{b["id"]}'))
+            subs.append((min(b["level"], 3), esc(b["text"][:76]), f'd{idx}-{b["id"]}'))
     toc.append({"idx": idx, "num": num, "title": title, "blurb": blurb, "subs": subs})
 
 BLOCKS_JSON = json.dumps([{"num": t["num"], "title": t["title"], "subs": t["subs"]} for t in toc],
