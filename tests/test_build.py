@@ -35,6 +35,15 @@ class Parse(unittest.TestCase):
         blocks, _ = parse("---\nname: x\n---\nHello\n")
         self.assertEqual(blocks, [{"type": "para", "html": "Hello"}])
 
+    def test_coverage_ignores_fenced_lines(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = Path(d) / "a.md"
+            p.write_text("# Title\n\n```\n# macro\n- x\n| a |\n```\n\n- real\n\n|a|\n|-|\n|1|\n",
+                         encoding="utf-8")
+            _, (r,) = build([p])
+        self.assertEqual((r["src_headings"], r["out_headings"]), (1, 1))
+        self.assertEqual((r["src_bullets"], r["out_bullets"]), (1, 1))
+        self.assertEqual((r["src_table_rows"], r["out_table_rows"]), (1, 1))
 
 
 class BuiltPages(unittest.TestCase):

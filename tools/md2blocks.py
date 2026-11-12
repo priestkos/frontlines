@@ -220,10 +220,13 @@ def build(paths):
     for p in paths:
         text = Path(p).read_text(encoding="utf-8")
         blocks, stats = parse(text)
-        src_head = len(re.findall(r"^\s*#{1,6}\s", text, re.M))
-        src_tables = len(re.findall(r"^\|.+\|\s*$", text, re.M))
-        src_bullets = len(re.findall(r"^\s*(?:[-*+]|\d+[.)])\s+", text, re.M))
         src_fences = text.count("```") // 2
+        # parse() never reads inside fences, so neither may the counts it is checked against
+        prose = re.sub(r"^\s*```.*?^\s*```[^\n]*$", "", text, flags=re.M | re.S)
+        src_head = len(re.findall(r"^\s*#{1,6}\s", prose, re.M))
+        src_tables = len(re.findall(r"^\s*\|.+\|\s*$", prose, re.M))  # tables may sit indented under a bullet
+        src_seps = sum(is_table_sep(ln.strip()) for ln in prose.split("\n"))
+        src_bullets = len(re.findall(r"^\s*(?:[-*+]|\d+[.)])\s+", prose, re.M))
         out.append({"source": Path(p).name, "path": str(p), "blocks": blocks})
         report.append({
             "file": Path(p).name,
@@ -231,7 +234,7 @@ def build(paths):
             "chars": len(text),
             "src_headings": src_head, "out_headings": stats["heading"],
             "src_table_lines": src_tables, "out_tables": stats["table"],
-            "out_table_rows": stats["tablerow"],
+            "src_table_rows": src_tables - 2 * src_seps, "out_table_rows": stats["tablerow"],
             "src_bullets": src_bullets, "out_bullets": stats["bullet"],
             "src_code_fences": src_fences, "out_code": stats["code"],
             "out_paras": stats["para"], "out_quotes": stats["quote"],
@@ -251,5 +254,7 @@ if __name__ == "__main__":
     tot = {k: sum(r[k] for r in report) for k in report[0] if k not in ("file",)}
     print("\nTOTALS", json.dumps(tot))
     missing = [(r["file"], r["src_headings"], r["out_headings"], r["src_bullets"], r["out_bullets"])
-               for r in report if r["src_headings"] != r["out_headings"] or r["src_bullets"] != r["out_bullets"]]
+               + (r["src_table_rows"], r["out_table_rows"])
+               for r in report if r["src_headings"] != r["out_headings"] or r["src_bullets"] != r["out_bullets"]
+               or r["src_table_rows"] != r["out_table_rows"]]
     print("MISMATCH", missing if missing else "none")
