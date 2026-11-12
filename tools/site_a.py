@@ -4,7 +4,6 @@
 Paper + iron-gall ink + one vermilion seal. Everything inline: no CDN, no
 external image, no font fetch, no host gate. Opens by double-click, offline.
 """
-import json
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -86,9 +85,6 @@ for idx, doc in enumerate(DOCS):
         if b["type"] == "heading" and b["level"] in (1, 2, 3):
             subs.append((min(b["level"], 3), esc(b["text"][:76]), f'd{idx}-{b["id"]}'))
     toc.append({"idx": idx, "num": num, "title": title, "blurb": blurb, "subs": subs})
-
-BLOCKS_JSON = json.dumps([{"num": t["num"], "title": t["title"], "subs": t["subs"]} for t in toc],
-                         ensure_ascii=False)
 
 # charts --------------------------------------------------------------------
 OVOO = [("B", 50, 5), ("A", 100, 10), ("S", 200, 20)]
@@ -517,11 +513,11 @@ JS = r"""
       r:40+Math.random()*120,vx:(Math.random()-.5)*.0006,vy:(Math.random()-.5)*.0004});}
     (function loop(){
       ctx.clearRect(0,0,w,h);
+      var rgb=getComputedStyle(html).getPropertyValue('--ink-rgb').trim()||'22,24,26';
       blobs.forEach(function(b){
         b.x+=b.vx;b.y+=b.vy;
         if(b.x<-.2||b.x>1.2)b.vx*=-1; if(b.y<-.2||b.y>1.2)b.vy*=-1;
         var g=ctx.createRadialGradient(b.x*w,b.y*h,0,b.x*w,b.y*h,b.r);
-        var rgb=getComputedStyle(html).getPropertyValue('--ink-rgb').trim()||'22,24,26';
         g.addColorStop(0,'rgba('+rgb+',0.045)');g.addColorStop(1,'rgba('+rgb+',0)');
         ctx.fillStyle=g;ctx.beginPath();ctx.arc(b.x*w,b.y*h,b.r,0,6.284);ctx.fill();
       });

@@ -340,7 +340,6 @@ JS = r"""
       x.setLineDash([5,8]);
       x.beginPath();x.moveTo(cx-R,cy);x.lineTo(cx+R,cy);x.moveTo(cx,cy-R);x.lineTo(cx,cy+R);x.stroke();
       x.setLineDash([]);
-      var g=x.createConicGradient?null:null;
       x.save();x.translate(cx,cy);x.rotate(ang);
       var grad=x.createLinearGradient(0,0,R,0);
       grad.addColorStop(0,'rgba(198,242,78,0.46)');grad.addColorStop(1,'rgba(198,242,78,0)');
