@@ -143,11 +143,11 @@ def parse(text: str):
         # table
         if stripped.startswith("|") and i + 1 < n and is_table_sep(lines[i + 1].strip()):
             flush_list()
-            head = [norm(c) for c in split_row(stripped)]
+            head = [inline(norm(c)) for c in split_row(stripped)]
             i += 2
             rows = []
             while i < n and lines[i].strip().startswith("|"):
-                rows.append([norm(c) for c in split_row(lines[i].strip())])
+                rows.append([inline(norm(c)) for c in split_row(lines[i].strip())])
                 i += 1
             blocks.append({"type": "table", "head": head, "rows": rows})
             stats["table"] += 1

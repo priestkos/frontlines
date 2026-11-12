@@ -4,6 +4,7 @@
 Graphite and chalk with a single chartreuse signal. Mono-forward, telemetry
 framing, six charts. Everything inline: no CDN, no external asset, no host gate.
 """
+from html import escape
 from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "plotting-table"
@@ -401,7 +402,7 @@ CHAIN_HTML = "".join(
 PLAYS_HTML = "".join(
     f'<button class="play rise" type="button"><span class="pn">PLAY {i + 1:02d}</span>'
     f'<h3>{n}</h3><p>{d}</p></button>' for i, (n, d) in enumerate(PLAYS))
-ORDERS_HTML = "".join(f"<span>{o}</span>" for o in ORDERS)
+ORDERS_HTML = "".join(f"<span>{escape(o)}</span>" for o in ORDERS)
 
 def timeline():
     """Both maps' activation clocks, drawn on the match countdown."""
