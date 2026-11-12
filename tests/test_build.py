@@ -46,6 +46,17 @@ class Parse(unittest.TestCase):
         self.assertEqual((r["src_table_rows"], r["out_table_rows"]), (1, 1))
 
 
+class Facts(unittest.TestCase):
+    def test_thresholds_match_source(self):
+        from facts import THRESH
+        line = next(ln for ln in (REPO / "sources" / "01-complete-guide.md").read_text(encoding="utf-8")
+                    .splitlines() if ln.startswith("**Thresholds:**"))
+        for _, val, mode in THRESH:
+            word = {"Danshig Naadam": "Onsal"}.get(mode, mode)  # the source line names Naadam by map
+            m = re.search(rf"{word}\**\s+([\d,]+)", line)
+            self.assertEqual(int(m.group(1).replace(",", "")), val, mode)
+
+
 class BuiltPages(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

@@ -4,19 +4,16 @@
 Graphite and chalk with a single chartreuse signal. Mono-forward, telemetry
 framing, six charts. Everything inline: no CDN, no external asset, no host gate.
 """
+import sys
 from html import escape
 from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent))
+from facts import AFFINITY, BH_KO, NODE_TICK, OVOO_DECAY, THRESH  # noqa: E402
 
 OUT = Path(__file__).resolve().parent.parent / "plotting-table"
 OUT.mkdir(parents=True, exist_ok=True)
 
 # ----------------------------------------------------------------- facts used
-THRESH = [("Onsal Hakair", 1400, "Danshig Naadam"), ("Worqor Chirteh", 1400, "Triumph"),
-          ("Fields of Glory", 1600, "Shatter"), ("Seal Rock", 700, "Seize"),
-          ("Borderland Ruins", 2400, "Secure")]
-NODE_TICK = [2, 4, 6, 10, 12, 14, 18, 20, 22]
-OVOO_DECAY = [(30, 200), (20, 120), (15, 100), (10, 60), (6, 40)]
-BH_KO = [4, 6, 8, 12, 16, 20]
 PHASES = [("00:00 to 04:00", "Asymmetric and cautious", "Farm Battle High on stragglers. Take the safe objective. Never commit the reserve."),
           ("04:00 to 14:00", "Mass and pivot", "Hold the interior position. Contest the centre only as a two against the leader."),
           ("14:00 to 20:00", "Rate, not risk", "Leading: accumulate quietly, take no open melee. Behind: force the leader to split.")]
@@ -69,13 +66,6 @@ JOB_ONE_LINERS = [
     ("Pictomancer", "Damage that does not depend on the Limit Break, with a blink and a speed buff."),
 ]
 
-AFFINITY = [("Paladin", [3, 3, 4, 4, 3]), ("Warrior", [4, 3, 4, 4, 4]), ("Dark Knight", [4, 4, 3, 3, 4]),
-            ("Gunbreaker", [4, 3, 3, 3, 3]), ("White Mage", [3, 4, 4, 4, 3]), ("Scholar", [1, 1, 1, 1, 1]),
-            ("Astrologian", [3, 4, 4, 4, 3]), ("Sage", [3, 2, 3, 3, 3]), ("Monk", [3, 3, 2, 3, 3]),
-            ("Dragoon", [4, 3, 4, 4, 4]), ("Ninja", [3, 3, 3, 3, 4]), ("Samurai", [4, 4, 3, 3, 3]),
-            ("Reaper", [4, 4, 4, 3, 4]), ("Viper", [4, 3, 4, 3, 4]), ("Bard", [2, 1, 3, 3, 2]),
-            ("Machinist", [2, 2, 3, 3, 2]), ("Dancer", [4, 4, 4, 4, 4]), ("Black Mage", [3, 3, 4, 4, 4]),
-            ("Summoner", [3, 4, 3, 3, 3]), ("Red Mage", [3, 2, 4, 4, 3]), ("Pictomancer", [3, 3, 3, 4, 3])]
 MAP_ORDER = ["Secure", "Seize", "Shatter", "Naadam", "Triumph"]
 
 CHAIN = [
