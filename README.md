@@ -37,11 +37,12 @@ Python 3 (stdlib only) for the build; Node plus Chrome or Edge for the harness.
 python tools/md2blocks.py   # sources/*.md -> _build/content.json (+ coverage report)
 python tools/site_a.py      # -> woodblock-codex/index.html
 python tools/site_b.py      # -> plotting-table/index.html
-node  tools/verify.mjs      # measures both pages, rewrites the previews
+node  tools/verify.mjs      # measures both pages, rewrites the previews; exits 1 on problems
+python -m unittest discover -s tests   # parser + built-page checks (stdlib; node optional)
 ```
 
 `md2blocks.py` ends with a coverage report and `MISMATCH none` — the current
-build reports 163/163 headings, 463/463 bullets, 54 tables and 27/27 code blocks,
+build reports 163/163 headings, 463/463 bullets, 54 tables (407/407 rows) and 27/27 code blocks,
 nothing unmatched. Set `CHROME_BIN` if your browser is not in a usual location;
 the verifier speaks CDP over Node's built-in WebSocket, so Node is all it needs.
 
