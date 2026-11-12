@@ -22,6 +22,11 @@ class Parse(unittest.TestCase):
         blocks, _ = parse("|a|b|\n|-|-|\n|`<se.1>`|**x** & y|\n")
         self.assertEqual(blocks[0]["rows"], [["<code>&lt;se.1&gt;</code>", "<strong>x</strong> &amp; y"]])
 
+    def test_heading_ids_unique(self):
+        blocks, _ = parse("## Sources\n\ntext\n\n## Sources\n\n## Sources\n")
+        self.assertEqual([b["id"] for b in blocks if b["type"] == "heading"],
+                         ["sources", "sources-2", "sources-3"])
+
     def test_frontmatter_skipped(self):
         blocks, _ = parse("---\nname: x\n---\nHello\n")
         self.assertEqual(blocks, [{"type": "para", "html": "Hello"}])
@@ -54,6 +59,12 @@ class BuiltPages(unittest.TestCase):
             tags = {t.lower() for t in re.findall(r"</?([A-Za-z][\w.-]*)", s)}
             self.assertEqual(tags - KNOWN_TAGS, set(), name)
 
+    def test_ids_unique_and_toc_resolves(self):
+        for name, s in self.pages.items():
+            ids = re.findall(r'\sid="([^"]+)"', s)
+            self.assertEqual(sorted(i for i in set(ids) if ids.count(i) > 1), [], name)
+            missing = {h for h in re.findall(r'href="#([^"]+)"', s)} - set(ids)
+            self.assertEqual(missing, set(), name)
 
 
 if __name__ == "__main__":

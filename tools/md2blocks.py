@@ -91,6 +91,7 @@ def parse(text: str):
     blocks, i, n = [], 0, len(lines)
     stats = {"heading": 0, "table": 0, "tablerow": 0, "bullet": 0, "code": 0, "quote": 0, "para": 0}
     pending_list = None
+    seen = {}
 
     def flush_list():
         nonlocal pending_list
@@ -108,6 +109,7 @@ def parse(text: str):
         if m:
             flush_list()
             blocks.append({"type": "anchor", "id": m.group(1)})
+            seen[m.group(1)] = seen.get(m.group(1), 0) + 1  # anchors share the heading id space
             i += 1
             continue
 
@@ -134,8 +136,12 @@ def parse(text: str):
         if m:
             flush_list()
             level, txt = len(m.group(1)), norm(m.group(2))
+            ident = slug(txt)
+            seen[ident] = seen.get(ident, 0) + 1
+            if seen[ident] > 1:  # repeated heading text: keep ids (and TOC jumps) unique
+                ident = f"{ident}-{seen[ident]}"
             blocks.append({"type": "heading", "level": level, "html": inline(txt),
-                           "text": re.sub(r"<[^>]+>", "", txt), "id": slug(txt)})
+                           "text": re.sub(r"<[^>]+>", "", txt), "id": ident})
             stats["heading"] += 1
             i += 1
             continue
