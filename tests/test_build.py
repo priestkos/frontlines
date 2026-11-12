@@ -76,6 +76,15 @@ class BuiltPages(unittest.TestCase):
         for name, s in self.markup():
             self.assertEqual(re.findall(r"&(?![a-zA-Z]+;|#\d+;|#x[0-9a-fA-F]+;).{0,20}", s), [], name)
 
+    @unittest.skipUnless(shutil.which("node"), "node not installed")
+    def test_inline_scripts_parse(self):
+        for name, s in self.pages.items():
+            for i, js in enumerate(re.findall(r"<script>(.*?)</script>", s, flags=re.S)):
+                p = Path(self.tmp.name) / f"{name}-{i}.js"
+                p.write_text(js, encoding="utf-8")
+                r = subprocess.run(["node", "--check", str(p)], capture_output=True, text=True)
+                self.assertEqual(r.returncode, 0, f"{name} script {i}: {r.stderr}")
+
     def test_ids_unique_and_toc_resolves(self):
         for name, s in self.pages.items():
             ids = re.findall(r'\sid="([^"]+)"', s)
