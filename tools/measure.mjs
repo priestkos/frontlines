@@ -106,6 +106,7 @@ function rpc(ws, id, method, params = {}) {
 }
 
 let ws, failed = false;
+const problems = []; // outside the try: the exit code below reads it
 try { // finally: never orphan Chrome or its profile, even when endpoint() throws
 ws = new WebSocket(await endpoint());
 await new Promise((res) => ws.addEventListener('open', res));
@@ -113,7 +114,6 @@ await new Promise((res) => ws.addEventListener('open', res));
 let id = 1;
 await rpc(ws, id++, 'Page.enable');
 await rpc(ws, id++, 'Runtime.enable');
-const problems = [];
 ws.addEventListener('message', (ev) => {
   let m; try { m = JSON.parse(ev.data); } catch { return; }
   if (m.method === 'Runtime.exceptionThrown') {

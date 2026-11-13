@@ -100,6 +100,7 @@ const MEASURE = `(() => {
 })()`;
 
 let ws, failed = false;
+const problems = []; // outside the try: the exit code below reads it
 try { // finally: never orphan Chrome or its profile, even when wsUrl() throws
 ws = new WebSocket(await wsUrl());
 await new Promise((r) => ws.addEventListener('open', r));
@@ -112,7 +113,6 @@ const rpc = (method, params = {}) => new Promise((resolve) => {
   ws.send(JSON.stringify({ id: myId, method, params }));
 });
 await rpc('Page.enable'); await rpc('Runtime.enable');
-const problems = [];
 ws.addEventListener('message', (ev) => {
   let m; try { m = JSON.parse(ev.data); } catch { return; }
   if (m.method === 'Runtime.exceptionThrown') problems.push('EXCEPTION ' + (m.params?.exceptionDetails?.text || ''));
