@@ -38,6 +38,7 @@ python tools/md2blocks.py   # sources/*.md -> _build/content.json (+ coverage re
 python tools/site_a.py      # -> woodblock-codex/index.html
 python tools/site_b.py      # -> plotting-table/index.html
 node  tools/verify.mjs      # measures both pages, rewrites the previews; exits 1 on problems
+node  tools/verify.mjs URL… # measures any pages as they load (e.g. the live site), warnings count too
 python -m unittest discover -s tests   # parser + built-page checks (stdlib; node optional)
 ```
 

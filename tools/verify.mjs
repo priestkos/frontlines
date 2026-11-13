@@ -1,6 +1,8 @@
-// Verifies both sites: un-hides every tab panel, forces reveals, measures chart
-// geometry and canvas paint coverage, captures a hero screenshot. CDP over Node's
-// global WebSocket, no dependencies.
+// Verifies the sites in headless Chrome over CDP (Node's global WebSocket, no dependencies).
+//   node tools/verify.mjs          both local pages: un-hides every tab panel, forces reveals,
+//                                  measures chart geometry and canvas paint, rewrites the previews
+//   node tools/verify.mjs URL...   any pages as they load (live site included): no forcing, no
+//                                  screenshots, console warnings count as problems too
 import { spawn } from 'node:child_process';
 import {existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -40,12 +42,15 @@ function findChrome() {
   return 'google-chrome';
 }
 const CHROME = findChrome();
-const PORT = 9334;
+const urls = process.argv.slice(2);
+const asIs = urls.length > 0;
+const PORT = asIs ? 9333 : 9334;
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const profile = mkdtempSync(join(tmpdir(), 'cdp2-'));
+const profile = mkdtempSync(join(tmpdir(), asIs ? 'cdp-' : 'cdp2-'));
 const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--no-first-run',
+  ...(asIs ? ['--no-default-browser-check', '--disable-extensions'] : []),
   '--hide-scrollbars', `--remote-debugging-port=${PORT}`, `--user-data-dir=${profile}`,
-  '--window-size=1440,900', 'about:blank'], { stdio: 'ignore' });
+  ...(asIs ? [] : ['--window-size=1440,900']), 'about:blank'], { stdio: 'ignore' });
 
 async function wsUrl() {
   for (let i = 0; i < 80; i++) {
@@ -99,6 +104,37 @@ const MEASURE = `(() => {
   });
 })()`;
 
+const MEASURE_ASIS = `(() => {
+  const de = document.documentElement;
+  const vis = (el) => { const s = getComputedStyle(el); return s.opacity !== '0' && s.visibility !== 'hidden'; };
+  const charts = [...document.querySelectorAll('svg.chart-svg, svg.cs')].map((s) => {
+    const r = s.getBoundingClientRect();
+    return { w: Math.round(r.width), h: Math.round(r.height), paths: s.querySelectorAll('path').length };
+  });
+  const riseHidden = [...document.querySelectorAll('.rise')].filter((e) => !vis(e)).length;
+  const blocks = [...document.querySelectorAll('.panel, .pan, .plate, .sec')];
+  return JSON.stringify({
+    title: document.title,
+    h1: (document.querySelector('h1') || {}).textContent || null,
+    overflowX: de.scrollWidth > innerWidth + 1,
+    scrollW: de.scrollWidth, innerW: innerWidth, scrollH: de.scrollHeight,
+    textChars: (document.body.innerText || '').length,
+    headings: document.querySelectorAll('h1,h2,h3,h4').length,
+    tables: document.querySelectorAll('table').length,
+    svg: document.querySelectorAll('svg').length,
+    canvas: document.querySelectorAll('canvas').length,
+    canvasPainted: [...document.querySelectorAll('canvas')].map((c) => {
+      try { const d = c.getContext('2d').getImageData(0, 0, Math.min(60, c.width), Math.min(60, c.height)).data;
+        let lit = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 0) lit++; return lit; } catch (e) { return -1; }
+    }),
+    charts,
+    riseHidden,
+    blocksWithHeight: blocks.filter((b) => b.getBoundingClientRect().height > 40).length,
+    blocksTotal: blocks.length,
+    animatedPath: [...document.querySelectorAll('path[style*="stroke-dashoffset"]')].length
+  });
+})()`;
+
 let ws, failed = false;
 const problems = []; // outside the try: the exit code below reads it
 try { // finally: never orphan Chrome or its profile, even when wsUrl() throws
@@ -115,28 +151,47 @@ const rpc = (method, params = {}) => new Promise((resolve) => {
 await rpc('Page.enable'); await rpc('Runtime.enable');
 ws.addEventListener('message', (ev) => {
   let m; try { m = JSON.parse(ev.data); } catch { return; }
-  if (m.method === 'Runtime.exceptionThrown') problems.push('EXCEPTION ' + (m.params?.exceptionDetails?.text || ''));
-  if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error')
-    problems.push('CONSOLE ' + m.params.args.map((a) => a.value ?? a.description).join(' '));
+  if (m.method === 'Runtime.exceptionThrown') {
+    const d = m.params?.exceptionDetails;
+    problems.push('EXCEPTION ' + (d?.text || '') + (asIs ? ' ' + (d?.exception?.description || '').split('\n')[0] : ''));
+  }
+  if (m.method !== 'Runtime.consoleAPICalled') return;
+  const args = m.params.args.map((a) => a.value ?? a.description).join(' ');
+  if (asIs && ['error', 'warning'].includes(m.params.type)) problems.push(m.params.type.toUpperCase() + ' ' + args);
+  if (!asIs && m.params.type === 'error') problems.push('CONSOLE ' + args);
 });
 
-const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const targets = ['woodblock-codex', 'plotting-table']
-  .map((d) => [pathToFileURL(join(REPO, d, 'index.html')).href, join(REPO, d, 'preview.png')]);
-for (const [url, shot] of targets) {
-  await rpc('Page.navigate', { url });
-  await sleep(3400);
-  await rpc('Runtime.evaluate', { expression: PREP, returnByValue: true });
-  await sleep(1400);                       // let counters + chart animations run
-  const r = await rpc('Runtime.evaluate', { expression: MEASURE, returnByValue: true });
-  let data = null; try { data = JSON.parse(r.result?.result?.value ?? 'null'); } catch {}
-  console.log('\n=== ' + url.split('/').slice(-2)[0]);
-  console.log(JSON.stringify(data, null, 1));
-  if (!data || data.overflowX || data.hiddenLeft) failed = true;
-  const cap = await rpc('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
-  if (cap.result?.data) { writeFileSync(shot, Buffer.from(cap.result.data, 'base64')); console.log('screenshot -> ' + shot); }
+if (asIs) {
+  for (const url of urls) {
+    await rpc('Page.navigate', { url });
+    await sleep(3800);
+    const r = await rpc('Runtime.evaluate', { expression: MEASURE_ASIS, returnByValue: true, awaitPromise: false });
+    let data = null; try { data = JSON.parse(r.result?.result?.value ?? 'null'); } catch {}
+    console.log('\n=== ' + url.split('/').slice(-2).join('/'));
+    console.log(JSON.stringify(data, null, 1));
+    if (!data || data.overflowX || data.riseHidden) failed = true;
+  }
+  console.log('\n=== JS problems seen: ' + problems.length);
+  problems.slice(0, 14).forEach((p) => console.log('  ' + p));
+} else {
+  const REPO = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const targets = ['woodblock-codex', 'plotting-table']
+    .map((d) => [pathToFileURL(join(REPO, d, 'index.html')).href, join(REPO, d, 'preview.png')]);
+  for (const [url, shot] of targets) {
+    await rpc('Page.navigate', { url });
+    await sleep(3400);
+    await rpc('Runtime.evaluate', { expression: PREP, returnByValue: true });
+    await sleep(1400);                       // let counters + chart animations run
+    const r = await rpc('Runtime.evaluate', { expression: MEASURE, returnByValue: true });
+    let data = null; try { data = JSON.parse(r.result?.result?.value ?? 'null'); } catch {}
+    console.log('\n=== ' + url.split('/').slice(-2)[0]);
+    console.log(JSON.stringify(data, null, 1));
+    if (!data || data.overflowX || data.hiddenLeft) failed = true;
+    const cap = await rpc('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+    if (cap.result?.data) { writeFileSync(shot, Buffer.from(cap.result.data, 'base64')); console.log('screenshot -> ' + shot); }
+  }
+  console.log('\nJS problems: ' + problems.length); problems.slice(0, 10).forEach((p) => console.log('  ' + p));
 }
-console.log('\nJS problems: ' + problems.length); problems.slice(0, 10).forEach((p) => console.log('  ' + p));
 } finally {
   ws?.close(); chrome.kill();
   try { rmSync(profile, { recursive: true, force: true, maxRetries: 5 }); } catch {}
